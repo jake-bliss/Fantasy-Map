@@ -8,6 +8,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.rawgit.com/naptha/tesseract.js/1.0.10/dist/tesseract.js"></script>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+
+    <!-- Leaflet Draw JavaScript -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
 </head>
 <body>
     <div id="mapid"></div>
@@ -141,13 +153,22 @@
                 success: function(response) {
                     console.log(response);
 
+                    var url_string = response;
+                    // url_string = '<a> href="url_string" target="_blank">url_string</a>';
+
                     // Check if the more button already exists in the popup
                     var existingMoreButton = $(marker._popup._contentNode).find('.more-button');
                     if (existingMoreButton.length === 0) {
                     // If the button doesn't exist, add it to the popup
                     var moreButton = '<button class="more-button">More</button>';
-                    marker._popup.setContent(marker._popup.getContent() + ' ' + moreButton);
 
+                    // create wiki button than when clicked will open a new tab with the wiki page base on the url string
+                    var wikiButton = '<button class="wiki-button">Wiki</button>';
+                    // Add hyperlink to button
+                    wikiButton = '<a href="' + url_string + '" target="_blank">' + wikiButton + '</a>';
+
+                    // Add the button to the popup
+                    marker._popup.setContent(marker._popup.getContent() + ' ' + moreButton + ' ' + wikiButton);
                     // Add a click listener to the button that executes the second AJAX request
                     $(marker._popup._contentNode).on('click', '.more-button', function() {
                         $.ajax({
@@ -163,6 +184,11 @@
                             console.log(error);
                         }
                         });
+                    });
+                    
+                    // If popup closes then revert content of popup to original text
+                    marker.on('popupclose', function(e) {
+                        marker.setPopupContent(markerText);
                     });
                     }
                 },
@@ -199,20 +225,21 @@
             });
         }
 
-        // Add map markers with popup text
-        var marker1 = L.marker([300, 500]).addTo(map);
-        marker1.bindPopup("Trollbark");
+        // Test markers
+        // // Add map markers with popup text
+        // var marker1 = L.marker([300, 500]).addTo(map);
+        // marker1.bindPopup("Trollbark");
 
-        var marker2 = L.marker([800, 200]).addTo(map);
-        marker2.bindPopup("This is marker 2");
+        // var marker2 = L.marker([800, 200]).addTo(map);
+        // marker2.bindPopup("This is marker 2");
 
-        var marker3 = L.marker([786.0625, 218.625]).addTo(map);
-        marker3.bindPopup("Luskan");
+        // var marker3 = L.marker([786.0625, 218.625]).addTo(map);
+        // marker3.bindPopup("Luskan");
 
-        // Set Up Markers
-        setupMarker(marker1);
-        setupMarker(marker2);
-        setupMarker(marker3);
+        // // Set Up Markers
+        // setupMarker(marker1);
+        // setupMarker(marker2);
+        // setupMarker(marker3);
 
         //Setup markers from database
         $.ajax({
@@ -232,6 +259,83 @@
             }
         });
 
+        // Create a feature group
+        var featureGroup = new L.FeatureGroup().addTo(map);
+
+        // Create a Leaflet Draw control
+        var drawControl = new L.Control.Draw({
+        draw: {
+            polyline: {
+            shapeOptions: {
+                color: 'blue'
+            }
+            },
+            marker: {
+            icon: L.icon({
+                iconUrl: 'https://leafletjs.com/examples/custom-icons/leaf-green.png',
+                iconSize: [38, 95],
+                iconAnchor: [22, 94],
+                popupAnchor: [-3, -76]
+            })
+            }
+        },
+        edit: {
+            featureGroup: featureGroup
+        }
+        }).addTo(map);
+        
+        // Create custom control
+        var distanceControl = L.control();
+
+        // Set up the control
+        distanceControl.onAdd = function(map) {
+            // Create container element for control
+            var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+
+            // Add content to container
+            var distanceElement = L.DomUtil.create('span', '', container);
+            distanceElement.textContent = '0.00 mi';
+
+            // Store reference to distance element
+            this.distanceElement = distanceElement;
+
+            // Return the container element
+            return container;
+        }
+
+        // Add the control to the map
+        distanceControl.addTo(map);
+
+        // Listen for the draw:created event
+        map.on('draw:created', function(e) {
+            console.log('Calculating distance...');
+                    
+            var type = e.layerType,
+                layer = e.layer;
+
+            if (type === 'marker') {
+                // Add the marker to the feature group
+                featureGroup.addLayer(layer);
+            } else if (type === 'polyline') {
+                // Add the polyline to the feature group
+                featureGroup.addLayer(layer);
+
+                // Calculate the distance of the polyline
+                var distance = 0;
+                var latlngs = layer.getLatLngs();
+                for (var i = 0; i < latlngs.length - 1; i++) {
+                    distance += latlngs[i].distanceTo(latlngs[i+1]);
+                }
+                distance /= 7418; // Convert to miles
+                console.log(distance);
+
+                // Update the distance in the widget
+                distanceControl.distanceElement.textContent = distance.toFixed(2) + ' mi';
+            }
+        });
+
+
+        
 
 
         // Resize the map to fill the screen height

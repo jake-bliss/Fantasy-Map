@@ -31,7 +31,7 @@ def get_text():
             subpages.append(line.strip())
 
     closest_match = difflib.get_close_matches(
-        input_text, subpages, n=1, cutoff=0.1)
+        'https://forgottenrealms.fandom.com/wiki/' + input_text, subpages, n=1, cutoff=0.1)
     if closest_match:
         return closest_match[0]
     else:
