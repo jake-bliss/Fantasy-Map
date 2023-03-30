@@ -6,9 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.rawgit.com/naptha/tesseract.js/1.0.10/dist/tesseract.js"></script>
 </head>
 <body>
-    <div id="mapid" style="height: 750px;"></div>
+    <div id="mapid"></div>
 
     <script>
         var imageUrl = '/static/image.jpg',
@@ -18,25 +20,72 @@
             minZoom: 0,
             maxZoom: 5,
             maxBounds: imageBounds,
-            crs: L.CRS.Simple
+            crs: L.CRS.Simple,
+            height: '100%'
         }).setView([500, 500], 2);
 
         L.imageOverlay(imageUrl, imageBounds).addTo(map);
 
-        // Create a custom icon for the markers
-        var customIcon = L.icon({
-            iconUrl: '/static/marker.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 16],
-            popupAnchor: [0, -16]
+        // Add map markers with popup text
+        var marker1 = L.marker([300, 500]).addTo(map);
+        marker1.bindPopup("Trollbark");
+
+        //Add a listener for when the marker is clicked
+        marker1.on('click', function(e) {
+            console.log('Marker clicked')
+            //get marker text
+            var markerText = marker1.getPopup().getContent();
+            console.log(markerText);
+
+            // Replace the text of the popup with the results of a python function call
+            $.ajax({
+                url: '/get_text',
+                type: 'POST',
+                data: JSON.stringify({text: markerText}),
+                contentType: 'application/json;charset=UTF-8',
+                success: function(response) {
+                    console.log(response);
+                    // marker1.setPopupContent(response);
+                    
+                    // Add a button to the popup
+                    var moreButton = '<button id="more-button">More</button>';
+                    marker1._popup.setContent(marker1._popup.getContent() + '  ' + moreButton);
+                    
+                    // Add a click listener to the button that executes the second AJAX request
+                    $('#more-button').click(function() {
+                        $.ajax({
+                            url: '/get_summary',
+                            type: 'POST',
+                            data: JSON.stringify({text: response}),
+                            contentType: 'application/json;charset=UTF-8',
+                            success: function(response) {
+                                console.log(response);
+                                marker1.setPopupContent(response);
+                            },
+                            error: function(error) {
+                                console.log(error);
+                            }
+                        });
+                    });
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
         });
 
-        // Add markers with popups to the map
-        var marker1 = L.marker([100, 100]).addTo(map);
-        var marker2 = L.marker([800, 800]).addTo(map);
+        var marker2 = L.marker([800, 200]).addTo(map);
+        marker2.bindPopup("This is marker 2");
 
-        marker1.bindPopup("<b>Location 1</b><br>Additional information about location 1.");
-        marker2.bindPopup("<b>Location 2</b><br>Additional information about location 2.");
+        // Resize the map to fill the screen height
+        function resizeMap() {
+            var windowHeight = $(window).height();
+            $('#mapid').height(windowHeight - $('#mapid').offset().top);
+            map.invalidateSize();
+        }
+
+        resizeMap(); // Resize the map on page load
+        $(window).resize(resizeMap); // Resize the map when the window is resized
     </script>
 </body>
 </html>
