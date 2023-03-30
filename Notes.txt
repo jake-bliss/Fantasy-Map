@@ -1,0 +1,5 @@
+
+
+when storing markers include data about which map they were generated on.
+
+allow marker to be deleted if it is clicked on while in editing mode

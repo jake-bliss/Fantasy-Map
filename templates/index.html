@@ -13,7 +13,7 @@
     <div id="mapid"></div>
 
     <script>
-        var imageUrl = '/static/image.jpg',
+        var imageUrl = '/static/image2.jpg',
             imageBounds = [[0,0], [1000,1000]];
 
         var map = L.map('mapid', {
@@ -26,56 +26,213 @@
 
         L.imageOverlay(imageUrl, imageBounds).addTo(map);
 
-        // Add map markers with popup text
-        var marker1 = L.marker([300, 500]).addTo(map);
-        marker1.bindPopup("Trollbark");
+        // Create a flag to indicate whether the user is allowed to create a marker
+        var allowMarkerCreation = false;
 
-        //Add a listener for when the marker is clicked
-        marker1.on('click', function(e) {
-            console.log('Marker clicked')
-            //get marker text
-            var markerText = marker1.getPopup().getContent();
-            console.log(markerText);
+        // Create a flag to indicate if the user is authorized to create a marker
+        var authorized = false;
 
-            // Replace the text of the popup with the results of a python function call
-            $.ajax({
+        // Create a button for toggling the flag
+        var createMarkerButton = L.control({ position: 'bottomleft' });
+        createMarkerButton.onAdd = function(map) {
+            var button = L.DomUtil.create('button', 'create-marker-button');
+            button.innerHTML = 'Create Marker';
+
+            function handleEscapeKey(event) {
+                if (event.keyCode === 27) {
+                    // Execute your function here
+                    authorized = false;
+                    button.style.backgroundColor = '';
+                    allowMarkerCreation = false;
+                    console.log('Escape key pressed');
+                }
+                }
+
+            document.addEventListener('keydown', handleEscapeKey);
+
+            button.onclick = function() {
+                // Display prompt for password
+                var password = prompt('Enter password:');
+                
+                // Check if password is correct
+                if (password === 'test') {
+                    setTimeout(function() {
+                        allowMarkerCreation = !allowMarkerCreation;
+                        if (allowMarkerCreation) {
+                            authorized = true;
+                            button.style.backgroundColor = 'red';
+                        } else {
+                            authorized = false;
+                            button.style.backgroundColor = '';
+                        }
+                    }, 100);
+                } else {
+                    alert('Incorrect password.');
+                }
+            };
+
+            button.addEventListener('mouseenter', function() {
+                console.log('Button hovered over');
+                if (allowMarkerCreation = true) {
+                    allowMarkerCreation = false;
+                    button.style.backgroundColor = '';
+                }
+            });
+
+            button.addEventListener('mouseleave', function() {
+                console.log('Button no longer hovered over');
+                if (authorized) {
+                    allowMarkerCreation = true;
+                    button.style.backgroundColor = 'red';
+                }
+            });
+            return button;
+        };
+        createMarkerButton.addTo(map);
+
+        // add click event listener to map
+        map.on('click', function(e) {
+        // retrieve latitude and longitude of clicked point
+        var latlng = e.latlng;
+        var lat = latlng.lat;
+        var lng = latlng.lng;
+
+        // log the location
+        console.log('Clicked location:', lat, lng);
+
+        if (allowMarkerCreation) {
+            var markerTitle = prompt("Enter a title for the marker:");
+            if (markerTitle !== null && markerTitle.trim() !== '') {
+                // create a new marker at the clicked location
+                var newMarker = L.marker(e.latlng).addTo(map);
+                // add a popup to the marker
+                newMarker.bindPopup('New marker created at ' + e.latlng.toString() + '<br>Title: ' + markerTitle);
+                // send the location data to the server
+                $.ajax({
+                    url: '/map_location_create',
+                    type: 'POST',
+                    data: JSON.stringify({ lat: lat, lng: lng, title: markerTitle }),
+                    contentType: 'application/json;charset=UTF-8',
+                    success: function(response) {
+                        console.log('Map location sent successfully');
+                    },
+                    error: function(error) {
+                        console.log('Error sending map location:', error);
+                    }
+                });
+            }
+        }
+        });
+
+        function setupMarker(marker) {
+            // Add a listener for when the marker is clicked
+            marker.on('click', function(e) {
+                console.log('Marker clicked');
+                // Get marker text
+                var markerText = marker.getPopup().getContent();
+                console.log(markerText);
+
+                // Replace the text of the popup with the results of a python function call
+                $.ajax({
                 url: '/get_text',
                 type: 'POST',
                 data: JSON.stringify({text: markerText}),
                 contentType: 'application/json;charset=UTF-8',
                 success: function(response) {
                     console.log(response);
-                    // marker1.setPopupContent(response);
-                    
-                    // Add a button to the popup
-                    var moreButton = '<button id="more-button">More</button>';
-                    marker1._popup.setContent(marker1._popup.getContent() + '  ' + moreButton);
-                    
+
+                    // Check if the more button already exists in the popup
+                    var existingMoreButton = $(marker._popup._contentNode).find('.more-button');
+                    if (existingMoreButton.length === 0) {
+                    // If the button doesn't exist, add it to the popup
+                    var moreButton = '<button class="more-button">More</button>';
+                    marker._popup.setContent(marker._popup.getContent() + ' ' + moreButton);
+
                     // Add a click listener to the button that executes the second AJAX request
-                    $('#more-button').click(function() {
+                    $(marker._popup._contentNode).on('click', '.more-button', function() {
                         $.ajax({
-                            url: '/get_summary',
-                            type: 'POST',
-                            data: JSON.stringify({text: response}),
-                            contentType: 'application/json;charset=UTF-8',
-                            success: function(response) {
-                                console.log(response);
-                                marker1.setPopupContent(response);
-                            },
-                            error: function(error) {
-                                console.log(error);
-                            }
+                        url: '/get_summary',
+                        type: 'POST',
+                        data: JSON.stringify({text: response}),
+                        contentType: 'application/json;charset=UTF-8',
+                        success: function(response) {
+                            console.log(response);
+                            marker.setPopupContent(response);
+                        },
+                        error: function(error) {
+                            console.log(error);
+                        }
                         });
                     });
+                    }
                 },
                 error: function(error) {
                     console.log(error);
                 }
+                });
+
+                if (authorized) {
+                    // Check if the delete button already exists in the popup
+                    if (!marker._popup.getContent().includes('delete-button')) {
+                        // Add a button to the popup
+                        var deleteButton = '<button class="delete-button">Delete</button>';
+                        marker._popup.setContent(marker._popup.getContent() + ' ' + deleteButton);
+
+                        // Add a click listener to the button that executes the AJAX request to delete the marker
+                        $(marker._popup._contentNode).on('click', '.delete-button', function() {
+                            $.ajax({
+                                url: '/map_location_delete',
+                                type: 'POST',
+                                data: JSON.stringify({lat: marker._latlng.lat, lng: marker._latlng.lng}),
+                                contentType: 'application/json;charset=UTF-8',
+                                success: function(response) {
+                                    console.log(response);
+                                    map.removeLayer(marker);
+                                },
+                                error: function(error) {
+                                    console.log(error);
+                                }
+                            });
+                        });
+                    }
+                }
             });
-        });
+        }
+
+        // Add map markers with popup text
+        var marker1 = L.marker([300, 500]).addTo(map);
+        marker1.bindPopup("Trollbark");
 
         var marker2 = L.marker([800, 200]).addTo(map);
         marker2.bindPopup("This is marker 2");
+
+        var marker3 = L.marker([786.0625, 218.625]).addTo(map);
+        marker3.bindPopup("Luskan");
+
+        // Set Up Markers
+        setupMarker(marker1);
+        setupMarker(marker2);
+        setupMarker(marker3);
+
+        //Setup markers from database
+        $.ajax({
+            url: '/map_locations',
+            type: 'GET',
+            contentType: 'application/json;charset=UTF-8',
+            success: function(locations) {
+                locations.forEach(function(location) {
+                    var latlng = L.latLng(location.lat, location.lng);
+                    var marker = L.marker(latlng).addTo(map);
+                    marker.bindPopup(location.name);
+                    setupMarker(marker);
+                });
+            },
+            error: function(error) {
+                console.log('Error retrieving map locations:', error);
+            }
+        });
+
+
 
         // Resize the map to fill the screen height
         function resizeMap() {

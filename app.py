@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import difflib
 from llama_index import GPTSimpleVectorIndex, SimpleDirectoryReader, Document
 from llama_index.node_parser import SimpleNodeParser
@@ -7,9 +7,9 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 from datetime import datetime
-from secrets import OPENAI_API_KEY
-
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+import config
+# os.environ["OPENAI_API_KEY"] = config.set_openai_key()
+config.set_openai_key()
 
 
 app = Flask(__name__)
@@ -84,6 +84,65 @@ def get_summary():
     return str(response)
 
 
+@app.route('/map_locations', methods=['GET'])
+def get_map_locations():
+    # Connect to the database
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+
+    # Execute a SELECT query to retrieve all map locations
+    c.execute('SELECT * FROM marker_locations')
+    rows = c.fetchall()
+
+    # Close the database connection
+    conn.close()
+
+    # Convert the rows to a list of dictionaries and return as JSON
+    locations = []
+    for row in rows:
+        location = {
+            'id': row[0],
+            'lat': row[3],
+            'lng': row[4],
+            'name': row[5]
+        }
+        locations.append(location)
+
+    return jsonify(locations)
+
+
+@app.route('/map_location_create', methods=['POST'])
+def map_location():
+    data = request.get_json()
+    lat = data['lat']
+    lng = data['lng']
+    title = data['title']
+    # Do something with the location and title data here
+    message = 'Location received: ' + str(lat) + ', ' + str(lng) + ', ' + title
+    response = {'message': message}
+
+    insert_location_to_db(lat, lng, title)
+
+    return jsonify(response)
+
+
+@app.route('/map_location_delete', methods=['POST'])
+def delete_map_location():
+    # Get the latitude and longitude from the AJAX request data
+    data = request.get_json()
+    lat = data['lat']
+    lng = data['lng']
+
+    # Delete the map location with the given latitude and longitude from the database
+    conn = sqlite3.connect('database.db')
+    c = conn.cursor()
+    c.execute("DELETE FROM marker_locations WHERE lat=? AND lng=?", (lat, lng))
+    conn.commit()
+    conn.close()
+
+    return 'Map location deleted successfully'
+
+
 def create_table():
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
@@ -92,6 +151,25 @@ def create_table():
                   URL TEXT, 
                   Summary TEXT, 
                   DateUpdated TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    conn.commit()
+    conn.close()
+
+    # Connect to the database
+    conn = sqlite3.connect('database.db')
+
+    # Create a cursor object
+    c = conn.cursor()
+
+    # Create the table if it doesn't already exist
+    c.execute('''CREATE TABLE IF NOT EXISTS marker_locations
+                (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date_created TEXT,
+                date_modified TEXT,
+                lat TEXT,
+                lng TEXT,
+                name TEXT)''')
+
+    # Commit the changes and close the connection
     conn.commit()
     conn.close()
 
@@ -136,6 +214,25 @@ def check_url_exists(url):
         return result[2]
     else:
         return
+
+
+def insert_location_to_db(lat, lng, name):
+    # Connect to the database
+    conn = sqlite3.connect('database.db')
+
+    # Create a cursor object
+    c = conn.cursor()
+
+    # Get the current date and time
+    now = datetime.now()
+
+    # Insert a new record into the table
+    c.execute("INSERT INTO marker_locations (date_created, date_modified, lat, lng, name) VALUES (?, ?, ?, ?, ?)",
+              (now, now, lat, lng, name))
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
 
 
 @app.before_first_request
