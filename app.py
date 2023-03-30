@@ -7,7 +7,9 @@ import requests
 from bs4 import BeautifulSoup
 import sqlite3
 from datetime import datetime
-os.environ["OPENAI_API_KEY"] = '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'
+from secrets import OPENAI_API_KEY
+
+os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
 
 app = Flask(__name__)
