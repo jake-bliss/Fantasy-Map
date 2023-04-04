@@ -1,5 +1,21 @@
-
-
 when storing markers include data about which map they were generated on.
 
-allow marker to be deleted if it is clicked on while in editing mode
+when loading markers, only load markers from the current map.
+    
+Connecting to postres db
+
+Show population and other statistics as a side bar when selecting a marker
+
+Region overlays for info rather than specific markers
+
+Allow placing of different types of markers. Maybe campaign specific
+
+Add travel distance/time calculations
+
+Allow you to enter a speed if traveling by non conventional means
+
+Have layers of icons so you can enable or disable them
+
+Possibly add weather info. Low priority
+
+Stickers to indicate wheather, armies, people etc

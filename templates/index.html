@@ -291,10 +291,17 @@
         distanceControl.onAdd = function(map) {
             // Create container element for control
             var container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            
+            // Style container element
+            container.style.backgroundColor = 'black';
+            container.style.padding = '5px';
 
             // Add content to container
             var distanceElement = L.DomUtil.create('span', '', container);
             distanceElement.textContent = '0.00 mi';
+
+            // Style distance element
+            distanceElement.style.color = 'white';
 
             // Store reference to distance element
             this.distanceElement = distanceElement;
